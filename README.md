@@ -1,4 +1,7 @@
-# launch-video-clone
+# 02ui-video-copy
+
+A fork of [per-simmons/launch-video-clone](https://github.com/per-simmons/launch-video-clone) by
+Pat Simmons, maintained by [02UI](https://02ui.com). Same workflow, with tools for better animation.
 
 A Claude Code skill for making product launch videos in [HyperFrames](https://www.npmjs.com/package/hyperframes)
 that don't look AI-made.
@@ -23,10 +26,32 @@ agent can run, with scripts that measure motion instead of guessing it.
 
 Both modes end by writing a `LESSONS.md` so the skill improves with each video.
 
+## What 02UI added: better animation
+
+The original skill measures motion very well, but its motion helpers sat inside one example file.
+This fork makes them a library and adds two checks, so good motion is the default, not the result
+of many review rounds.
+
+- **`lib/motion.js`**: a frame-pure motion library. It has varied easings, exact CSS/After
+  Effects/Figma `cubic-bezier` curves, physical springs (Framer Motion and SwiftUI units) with a
+  settle-length calculator, multi-key paths that never stall at a middle key, log-scale zooms,
+  drift curves, seeded stagger, idle wobble and noise. Each helper fixes 1 measured mistake from
+  `references/motion-feel.md`. Tests: `node lib/motion.test.js`.
+- **`scripts/motionlint.py`**: reads the composition before a render and flags the "AI motion"
+  patterns. These are CSS transitions, timers, `Math.random`, one ease on everything, default fonts,
+  and (Original mode) glass, gradient blobs and slide-up cards. `round.sh` runs it first and stops
+  on errors, so you do not waste a render.
+- **`scripts/rhythm.py`**: reads a render's analysis and finds dead moments, metronome cuts,
+  one-ease edits, hard-stop settles, staged cut-ins and off-beat cuts. It compares these with real
+  donor videos. This turns the Original-mode "find the dead moment" review into numbers.
+
+Both scripts use only built-in Python, so they run with no installs.
+
 ## Layout
 
 ```
 SKILL.md              the workflow (start here)
+lib/motion.js         the motion library (copy into each HyperFrames project)
 types/                one file per kind of motion: build approach, traps, lessons
 references/           motion-feel rules, living-stills recipes, the corpus of public techniques,
                       and worked example code from past clones (examples/)
@@ -35,13 +60,13 @@ scripts/              analysis, tracking, comparison and sound tools
 
 ## Install
 
-Copy this folder to either location:
+Clone it to either location:
 
 ```bash
 # for all your projects
-cp -R launch-video-clone ~/.claude/skills/launch-video-clone
+git clone https://github.com/02ui/02ui-video-copy ~/.claude/skills/02ui-video-copy
 # or for one project
-cp -R launch-video-clone <project>/.claude/skills/launch-video-clone
+git clone https://github.com/02ui/02ui-video-copy <project>/.claude/skills/02ui-video-copy
 ```
 
 Then ask Claude Code for "a launch video for <product>" or "clone this launch video: <url>".
@@ -79,4 +104,4 @@ e.g. `./renders` (gitignored here) or an external drive.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE). Original work © 2026 Pat Simmons; additions © 2026 02UI.

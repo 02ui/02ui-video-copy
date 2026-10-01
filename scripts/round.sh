@@ -8,6 +8,12 @@ set -e
 P=$1; R=$2; V=$3; S=${0:A:h}
 FPS=${4:-$(ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of csv=p=0 "$P/reference/ref.mp4")}
 mkdir -p "$R"
+# lint first: a render takes minutes, the lint takes a second (LINT=original adds the Original-mode bans, LINT=off skips)
+case "${LINT:-on}" in
+  off) ;;
+  original) python3 "$S/motionlint.py" "$P/hf" --original || { echo "motionlint: fix the ERRORs above (or LINT=off)"; exit 1; } ;;
+  *) python3 "$S/motionlint.py" "$P/hf" || { echo "motionlint: fix the ERRORs above (or LINT=off)"; exit 1; } ;;
+esac
 ( cd "$P/hf" && npx hyperframes render --strict --quality draft --fps "$FPS" --output "$R/$V.mp4" 2>&1 | grep -E "rendered in|rror" || true )
 python3 "$S/burst.py" "$R/$V.mp4" "$R/$V-analysis" >/dev/null 2>&1
 python3 "$S/compare.py" "$P/reference/analysis" "$R/$V-analysis" "$R/$V-compare" 2>&1 | grep -v Warning | tail -6

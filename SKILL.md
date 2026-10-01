@@ -1,9 +1,12 @@
 ---
-name: launch-video-clone
+name: 02ui-video-copy
 description: Make product-launch / motion-graphics videos in HyperFrames, in two modes. ORIGINAL (no reference): pick a category from the type files and build a launch video from scratch with the skill's motion rules. CLONE: rebuild a reference video as closely as possible — same shots, timing, easing, transitions and type — in HyperFrames, optionally re-skinned for a different brand. Opus can't watch video, so a burst-frame analyzer turns the reference into per-shot frame sequences, motion trails, easing curves and beat maps it CAN read, and a compare tool grades each render against the reference frame for frame until they match. Raster imagery comes from an image model (gpt-image or similar). Has one type file per kind of motion (UI showcase, abstract 3D diagram, 3D product, editorial collage). Use when the user says "make a launch video for <product>", "launch video for this release", "clone this launch video", "recreate this motion video", "make one like this for <brand>", "get as close to this as possible", or drops an X/YouTube link to a launch video and wants it rebuilt.
 ---
 
-# Launch Video Clone
+# 02UI Video Copy
+
+A fork of Pat Simmons' launch-video-clone with a motion library (`lib/motion.js`) and two
+checks that catch AI-looking motion (`motionlint.py` before a render, `rhythm.py` after it).
 
 **Two modes. Pick one before anything else.**
 - **Original** (no reference video): you are making a launch video for a product from scratch.
@@ -60,7 +63,8 @@ Renders never go in the repo. HyperFrames writes one PNG per frame as scratch **
 `--output`**, so renders need a lot of free disk. Always render to `<RENDERS>`.
 
 Scripts: `S="$SKILL_DIR/scripts"`, where `SKILL_DIR` is the folder this SKILL.md lives in
-(e.g. `.claude/skills/launch-video-clone` in your project).
+(e.g. `.claude/skills/02ui-video-copy` in your project).
+- `motionlint.py <hf>` flag AI-motion patterns before a render (round.sh runs it) · `rhythm.py <analysis>` find dead moments and rhythm gaps in a render
 - `burst.py` analyze a video · `sheet.py` every frame of a range · `compare.py` grade a render
 - `round.sh <project> <RENDERS> vN [fps]` render → analyze → compare in one go, appends to LOG-numbers.txt
 - `sbs.py ref.mp4 clone.mp4 out.mp4` labeled 16:9 side-by-side for review
@@ -220,6 +224,23 @@ draw(0);
 window.__timelines["main"] = tl;
 ```
 
+**Motion library: `lib/motion.js`.** Copy it into `hf/` and load it before your script
+(`<script src="motion.js"></script>`, then `const { E, kf, path, spring, ... } = M;`). Every helper is a
+pure function of the frame and exists because of a measured mistake in `references/motion-feel.md`:
+- `E.*` easings plus `E.bez(x1,y1,x2,y2)`, the exact CSS / After Effects / Figma cubic-bezier, so a
+  designer's curve ports 1:1. Vary easing by role: entrances `out4`/`expoOut`, exits `in3`, camera
+  `io3`, settles `spring`.
+- `path(F, keys, ease)`: one ease over a multi-key move, so the object never stops at a middle key
+  (mistake 1). Use it instead of `kf` whenever a move passes through more than 2 keys.
+- `spring(tSec, {stiffness, damping, mass})`: physical spring, same units as Framer Motion and
+  SwiftUI. `springFrames(fps, opts)` gives the settle length, so you size the shot from it.
+  `springTo` sums one spring per retarget.
+- `logScale` (big zooms, mistake 4), `drift` (floating product, MarkKnd curve), `cutIn` (start a
+  shot at speed, mistake 6), `stagger` with seeded jitter and `layered` (container, content,
+  chrome; mistakes 2 and 5), `wobble`/`noise`/`fbm` (idle life, never `Math.random`),
+  `onTwos` (cadence, mistake 10), `blurRamp` (mistake 9).
+Run `node lib/motion.test.js` after you change the library.
+
 Use sub-compositions only for a long self-contained section. Keyframe helpers (`kf(f, [[f0,v0],[f1,v1]], ease)`),
 closed-form springs and seeded noise make every value a function of the frame.
 
@@ -244,6 +265,12 @@ music on the same beat grid.
 ```bash
 $S/round.sh <project> ./renders v1          # or any path outside the repo with plenty of free disk
 ```
+
+`round.sh` runs `motionlint.py` on `hf/` first and stops on an ERROR (CSS transitions, timers,
+`Math.random`, wall clock), because those make renders drift and fixes unrepeatable. Read the
+WARN lines too: one ease on everything and default fonts are the "AI motion" look. Set
+`LINT=original` for Original mode (adds the glass, gradient-blob and slide-up bans), or
+`LINT=off` to skip.
 
 Before round 1, check the look without a full render:
 `npx hyperframes snapshot --at <key seconds> --against ../reference/ref.mp4 --describe false -o "$R/snap1"`.
@@ -405,7 +432,11 @@ for an original. Test every shot: if it could appear in any AI launch video, red
    layout. Motion is graded against the donor numbers from item 2 and the checks in
    `references/motion-feel.md`: vary the easing, no everything-slides-in-from-below, holds long
    enough to read. Do a separate review pass whose only job is to find the dead moment or the
-   rhythm gap, then fix it.
+   rhythm gap, then fix it. Start that pass with numbers:
+   `python3 $S/rhythm.py "$R/vN-analysis" --donor <donor-analysis> -o RHYTHM.md` flags dead
+   moments, metronome cuts, one-ease edits, hard-stop settles, staged cut-ins and off-beat cuts,
+   and compares shot length, settle and density with the donors. Fix every flag or write in
+   LOG.md why it is deliberate. Then watch it at full speed.
 6. **Ship** a 1920x1080 MP4 plus the HyperFrames project, and end with step 7 (Teach the skill).
 
 ## Rebrand mode
